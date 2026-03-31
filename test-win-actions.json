@@ -1,0 +1,11 @@
+{
+  "steps": [
+    { "buttons": ["b", "right"], "frames": 20 },
+    { "buttons": ["b", "right", "space", "up"], "frames": 22 },
+    { "buttons": ["b", "right"], "frames": 16 },
+    { "buttons": ["b", "right", "space", "up"], "frames": 22 },
+    { "buttons": ["b", "right"], "frames": 16 },
+    { "buttons": ["b", "right", "space", "up"], "frames": 22 },
+    { "buttons": ["b", "right"], "frames": 28 }
+  ]
+}
