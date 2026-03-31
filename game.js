@@ -207,18 +207,23 @@ function resolvePlatformCollisions(player, previousY) {
   player.onGround = false;
 
   for (const platform of level.platforms) {
-    if (!rectsOverlap(player, platform)) {
+    const playerLeft = player.x;
+    const playerRight = player.x + player.width;
+    const platformLeft = platform.x;
+    const platformRight = platform.x + platform.width;
+    const overlapsHorizontally = playerRight > platformLeft && playerLeft < platformRight;
+    const previousBottom = previousY + player.height;
+    const currentBottom = player.y + player.height;
+    const crossedPlatformTop = previousBottom <= platform.y && currentBottom >= platform.y;
+    const isFalling = player.vy >= 0;
+
+    if (!overlapsHorizontally || !isFalling || !crossedPlatformTop) {
       continue;
     }
 
-    const previousBottom = previousY + player.height;
-    const currentBottom = player.y + player.height;
-
-    if (player.vy >= 0 && previousBottom <= platform.y && currentBottom >= platform.y) {
-      player.y = platform.y - player.height;
-      player.vy = 0;
-      player.onGround = true;
-    }
+    player.y = platform.y - player.height;
+    player.vy = 0;
+    player.onGround = true;
   }
 }
 
@@ -381,3 +386,4 @@ resetLevel();
 setupInput();
 render();
 window.requestAnimationFrame(frame);
+
