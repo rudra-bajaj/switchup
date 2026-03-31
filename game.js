@@ -16,28 +16,35 @@ const level = {
   ]
 };
 
+const controlProfiles = {
+  keyboardWasd: {
+    id: "keyboardWasd",
+    left: ["KeyA"],
+    right: ["KeyD", "KeyB"],
+    jump: ["KeyW", "Space"]
+  },
+  keyboardArrows: {
+    id: "keyboardArrows",
+    left: ["ArrowLeft"],
+    right: ["ArrowRight"],
+    jump: ["ArrowUp"]
+  }
+};
+
 const playerConfigs = [
   {
     name: "Player 1",
     color: "#ef476f",
     spawnX: 70,
     spawnY: 440,
-    controls: {
-      left: ["KeyA"],
-      right: ["KeyD", "KeyB"],
-      jump: ["KeyW", "Space"]
-    }
+    controlId: "keyboardWasd"
   },
   {
     name: "Player 2",
     color: "#118ab2",
     spawnX: 125,
     spawnY: 440,
-    controls: {
-      left: ["ArrowLeft"],
-      right: ["ArrowRight"],
-      jump: ["ArrowUp"]
-    }
+    controlId: "keyboardArrows"
   }
 ];
 
@@ -48,9 +55,7 @@ const physics = {
   maxFallSpeed: 900
 };
 
-const input = {
-  pressed: new Set()
-};
+const inputManager = createInputManager();
 
 const state = {
   mode: "playing",
@@ -58,6 +63,61 @@ const state = {
   players: [],
   resetTimer: 0
 };
+
+function createInputManager() {
+  return {
+    pressedKeys: new Set(),
+    controlAssignments: new Map(),
+    actionStateByPlayer: new Map()
+  };
+}
+
+function createControlState() {
+  return {
+    left: false,
+    right: false,
+    jump: false
+  };
+}
+
+function getControlProfile(controlId) {
+  return controlProfiles[controlId] || null;
+}
+
+function assignControlToPlayer(playerName, controlId) {
+  inputManager.controlAssignments.set(playerName, controlId);
+  updateActionStates();
+}
+
+function getAssignedControl(playerName) {
+  const controlId = inputManager.controlAssignments.get(playerName);
+  return getControlProfile(controlId);
+}
+
+function assignDefaultControls() {
+  for (const config of playerConfigs) {
+    assignControlToPlayer(config.name, config.controlId);
+  }
+}
+
+function updateActionStates() {
+  for (const player of state.players) {
+    const controlProfile = getAssignedControl(player.name);
+    const controlState = createControlState();
+
+    if (controlProfile) {
+      controlState.left = controlProfile.left.some((code) => inputManager.pressedKeys.has(code));
+      controlState.right = controlProfile.right.some((code) => inputManager.pressedKeys.has(code));
+      controlState.jump = controlProfile.jump.some((code) => inputManager.pressedKeys.has(code));
+    }
+
+    inputManager.actionStateByPlayer.set(player.name, controlState);
+  }
+}
+
+function getPlayerControls(player) {
+  return inputManager.actionStateByPlayer.get(player.name) || createControlState();
+}
 
 function createPlayer(config) {
   return {
@@ -79,6 +139,7 @@ function resetLevel(message = "Reach the goal with both players") {
   state.message = message;
   state.resetTimer = 0;
   state.players = playerConfigs.map(createPlayer);
+  updateActionStates();
 }
 
 function queueReset(message) {
@@ -91,17 +152,10 @@ function queueReset(message) {
   state.resetTimer = 1.2;
 }
 
-function isPressed(code) {
-  return input.pressed.has(code);
-}
-
-function isAnyPressed(codes) {
-  return codes.some((code) => isPressed(code));
-}
-
 function setupInput() {
   window.addEventListener("keydown", (event) => {
-    input.pressed.add(event.code);
+    inputManager.pressedKeys.add(event.code);
+    updateActionStates();
 
     if (event.code === "KeyR") {
       resetLevel("Level reset");
@@ -113,7 +167,8 @@ function setupInput() {
   });
 
   window.addEventListener("keyup", (event) => {
-    input.pressed.delete(event.code);
+    inputManager.pressedKeys.delete(event.code);
+    updateActionStates();
   });
 }
 
@@ -127,9 +182,10 @@ function rectsOverlap(a, b) {
 }
 
 function handlePlayerInput(player) {
-  const movingLeft = isAnyPressed(player.controls.left);
-  const movingRight = isAnyPressed(player.controls.right);
-  const wantsJump = isAnyPressed(player.controls.jump);
+  const controls = getPlayerControls(player);
+  const movingLeft = controls.left;
+  const movingRight = controls.right;
+  const wantsJump = controls.jump;
 
   player.vx = 0;
 
@@ -204,6 +260,8 @@ function updateGame(dt) {
     }
     return;
   }
+
+  updateActionStates();
 
   for (const player of state.players) {
     updatePlayer(player, dt);
@@ -292,7 +350,8 @@ function renderGameToText() {
       vx: Number(player.vx.toFixed(1)),
       vy: Number(player.vy.toFixed(1)),
       onGround: player.onGround,
-      atGoal: player.atGoal
+      atGoal: player.atGoal,
+      controlId: inputManager.controlAssignments.get(player.name) || null
     }))
   });
 }
@@ -308,11 +367,16 @@ window.advanceTime = (ms) => {
 window.__platformer = {
   state,
   level,
+  controlProfiles,
+  inputManager,
+  assignControlToPlayer,
+  getAssignedControl,
   resetLevel,
   updateGame,
   render
 };
 
+assignDefaultControls();
 resetLevel();
 setupInput();
 render();
